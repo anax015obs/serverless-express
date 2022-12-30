@@ -9,7 +9,7 @@ services:
     restart: always
     container_name: serverless-express-mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=RQ27mVjiKMzegL
+      - MYSQL_ROOT_PASSWORD=R1V7mVciKDzKgL
       - MYSQL_DATABASE=development
     ports:
       - "3306:3306"

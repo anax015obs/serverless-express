@@ -11,7 +11,7 @@ AWS_PROFILE=default
 # example of env.development
 ```bash
 NODE_ENV=development
-DATABASE_URL=mysql://root:RQ27mVjiKMzegL@localhost:3306/development
+DATABASE_URL=mysql://root:R1V7mVciKDzKgL@localhost:3306/development
 ```
 
 # todo
