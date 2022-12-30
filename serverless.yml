@@ -1,0 +1,246 @@
+service: ${env:SERVICE_NAME}
+frameworkVersion: "3"
+
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs16.x # v16.18.1
+  memorySize: 256
+  profile: ${env:AWS_PROFILE}
+  region: ap-northeast-2
+  stage: production
+  vpc:
+    securityGroupIds:
+      - !Ref LambdaSecurityGroup
+    subnetIds:
+      - !Ref SubnetA
+      - !Ref SubnetB
+  # environment:
+  # DATABASE_URL: !GetAtt RDSInstance.Endpoint
+
+custom:
+  VPC_CIDR: 11
+  webpack:
+    includeModules:
+      forceExclude:
+        - aws-sdk
+    packager: "yarn"
+
+package:
+  individually: true
+
+plugins:
+  - serverless-webpack
+  - serverless-dotenv-plugin
+
+functions:
+  main:
+    handler: handler.handler
+    events:
+      - http:
+          method: ANY
+          path: /
+      - http:
+          method: ANY
+          path: "{proxy+}"
+
+resources:
+  Resources:
+    VPC:
+      Type: AWS::EC2::VPC
+      DeletionPolicy: Retain
+      Properties:
+        CidrBlock: ${self:custom.VPC_CIDR}.0.0.0/16
+        EnableDnsSupport: true
+        EnableDnsHostnames: true
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-vpc
+
+    SubnetA:
+      Type: AWS::EC2::Subnet
+      DeletionPolicy: Retain
+      Properties:
+        VpcId: !Ref VPC
+        AvailabilityZone: ${self:provider.region}a
+        CidrBlock: ${self:custom.VPC_CIDR}.0.0.0/24
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-subnet-a
+
+    SubnetB:
+      Type: AWS::EC2::Subnet
+      DeletionPolicy: Retain
+      Properties:
+        VpcId: !Ref VPC
+        AvailabilityZone: ${self:provider.region}b
+        CidrBlock: ${self:custom.VPC_CIDR}.0.1.0/24
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-subnet-b
+
+    LambdaSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      DeletionPolicy: Retain
+      Properties:
+        VpcId: !Ref VPC
+        GroupDescription: "Security group for Lambdas"
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-lambda-security-group
+
+    RDSSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      DeletionPolicy: Retain
+      Properties:
+        GroupDescription: "Security group for RDS"
+        VpcId: !Ref VPC
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: 0
+            ToPort: 65535
+            CidrIp: "0.0.0.0/0"
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-rds-security-group
+
+    RDSInstance:
+      Type: AWS::RDS::DBInstance
+      DeletionPolicy: Retain
+      DependsOn: VPCGA
+      Properties:
+        DBName: ${env:NODE_ENV}
+        MasterUsername: ${env:DB_USERNAME}
+        MasterUserPassword: ${env:DB_PASSWORD}
+        AllocatedStorage: "5"
+        Engine: MySQL
+        Port: ${env:DB_PORT}
+        PubliclyAccessible: true
+        DBInstanceClass: db.t2.micro
+        DBSubnetGroupName: !Ref RDSSubnetGroup
+        VPCSecurityGroups:
+          - !GetAtt RDSSecurityGroup.GroupId
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-rds-instance
+
+    RDSSubnetGroup:
+      Type: AWS::RDS::DBSubnetGroup
+      DeletionPolicy: Retain
+      Properties:
+        DBSubnetGroupDescription: "RDS subnet group"
+        SubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-rds-subnet-group
+
+    RDSProxy:
+      Type: AWS::RDS::DBProxy
+      DeletionPolicy: Retain
+      Properties:
+        DBProxyName: ${env:SERVICE_NAME}-rds-proxy
+        EngineFamily: MYSQL
+        RoleArn: !GetAtt RDSProxyRole.Arn
+        Auth:
+          - AuthScheme: SECRETS
+            IAMAuth: DISABLED
+            SecretArn: !Ref RDSSecret
+        VpcSecurityGroupIds:
+          - !Ref RDSSecurityGroup
+        VpcSubnetIds:
+          - !Ref SubnetA
+          - !Ref SubnetB
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-rds-proxy
+
+    RDSProxyTargetGroup:
+      Type: AWS::RDS::DBProxyTargetGroup
+      DeletionPolicy: Retain
+      Properties:
+        TargetGroupName: default
+        DBProxyName: !Ref RDSProxy
+        DBInstanceIdentifiers:
+          - !Ref RDSInstance
+
+    RDSSecret:
+      Type: AWS::SecretsManager::Secret
+      DeletionPolicy: Retain
+      Properties:
+        SecretString: '{"username":"${env:DB_USERNAME}", "password":"${env:DB_PASSWORD}"}'
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-rds-secret
+
+    RDSProxyRole:
+      Type: "AWS::IAM::Role"
+      DeletionPolicy: Retain
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - rds.amazonaws.com
+              Action:
+                - "sts:AssumeRole"
+        Policies:
+          - PolicyName: RDSProxyPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: "secretsmanager:GetSecretValue"
+                  Resource: !Ref RDSSecret
+                - Effect: Allow
+                  Action: "kms:Decrypt"
+                  Resource: !Sub "arn:aws:kms:${self:provider.region}:${AWS::AccountId}:key/*"
+                  Condition:
+                    StringEquals:
+                      kms:ViaService: "secretsmanager.${self:provider.region}.amazonaws.com"
+
+    InternetGateway:
+      Type: AWS::EC2::InternetGateway
+      DeletionPolicy: Retain
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: ${env:SERVICE_NAME}-ig
+
+    VPCGA:
+      Type: AWS::EC2::VPCGatewayAttachment
+      Properties:
+        VpcId: !Ref VPC
+        InternetGatewayId: !Ref InternetGateway
+
+    RouteTablePublic:
+      DependsOn: VPCGA
+      Type: AWS::EC2::RouteTable
+      Properties:
+        VpcId: !Ref VPC
+        Tags:
+          - Key: "Name"
+            Value: "RouteTablePublic"
+
+    RoutePublic:
+      Type: AWS::EC2::Route
+      Properties:
+        DestinationCidrBlock: 0.0.0.0/0
+        GatewayId: !Ref InternetGateway
+        RouteTableId: !Ref RouteTablePublic
+
+    RouteTableAssociationSubnetA:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref RouteTablePublic
+        SubnetId: !Ref SubnetA
+
+    RouteTableAssociationSubnetB:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref RouteTablePublic
+        SubnetId: !Ref SubnetB

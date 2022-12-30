@@ -1,0 +1,34 @@
+# for develop
+version: "3"
+
+services:
+  db:
+    image: mysql
+    volumes:
+      - serverless-express-volume:/var/lib/mysql
+    restart: always
+    container_name: serverless-express-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=RQ27mVjiKMzegL
+      - MYSQL_DATABASE=development
+    ports:
+      - "3306:3306"
+    expose:
+      - "3306"
+    command:
+      [
+        'mysqld',
+        '--character-set-server=utf8mb4',
+        '--collation-server=utf8mb4_general_ci'
+      ]
+  redis:
+    image: redis
+    command: redis-server --port 6380
+    restart: always
+    container_name: serverless-express-redis
+    ports:
+      - "6380:6380"
+    expose:
+      - "6380"
+volumes:
+  serverless-express-volume:

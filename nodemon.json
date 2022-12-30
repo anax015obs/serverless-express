@@ -1,0 +1,7 @@
+{
+    "watch": [
+        "src/**/*.ts",
+        "handler.local.ts"
+    ],
+    "exec": "ts-node handler.local.ts"
+}

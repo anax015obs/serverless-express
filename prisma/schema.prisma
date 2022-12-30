@@ -1,0 +1,123 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    url      = env("DATABASE_URL")
+    provider = "mysql"
+}
+
+model User {
+    id         String   @id @default(uuid())
+    email      String   @unique
+    name       String   @unique
+    pw         String
+    salt       String
+    // comments     Comment[]
+    // commentLikes CommentLike[]
+    // images       Image[]
+    // posts        Post[]
+    // postLikes    PostLike[]
+    // replies      Reply[]
+    // replyLikes   ReplyLike[]
+    createDate DateTime @default(now())
+}
+
+// model Image {
+//     id         String      @id
+//     fileName   String
+//     fileSize   Int
+//     blurhash   String
+//     width      Int
+//     height     Int
+//     isProfile  Boolean
+//     user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId     String
+//     postImages PostImage[]
+//     createDate DateTime    @default(now())
+// }
+
+// model Post {
+//     id          String      @id @default(uuid())
+//     title       String
+//     content     String      @db.Text
+//     description String?     @db.VarChar(150)
+//     tempSaved   Boolean
+//     user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId      String
+//     categories  Category[]
+//     comments    Comment[]
+//     postImages  PostImage[]
+//     postLikes   PostLike[]
+//     createDate  DateTime    @default(now())
+// }
+
+// model PostImage {
+//     id          String  @id @default(uuid())
+//     isThumbnail Boolean
+//     image       Image   @relation(fields: [imageId], references: [id], onDelete: Cascade)
+//     imageId     String
+//     post        Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+//     postId      String
+// }
+
+// model PostLike {
+//     id     String @id @default(uuid())
+//     post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+//     postId String
+//     user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId String
+// }
+
+// model Tag {
+//     id         String     @id @default(uuid())
+//     name       String     @unique()
+//     categories Category[]
+// }
+
+// model Category {
+//     id     String @id @default(uuid())
+//     post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+//     postId String
+//     tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+//     tagId  String
+// }
+
+// model Comment {
+//     id           String        @id @default(uuid())
+//     content      String
+//     post         Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+//     postId       String
+//     user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId       String
+//     commentLikes CommentLike[]
+//     replies      Reply[]
+//     createDate   DateTime      @default(now()) @db.DateTime(6)
+// }
+
+// model CommentLike {
+//     id        String  @id @default(uuid())
+//     user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId    String
+//     comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+//     commentId String
+// }
+
+// model Reply {
+//     id         String      @id @default(uuid())
+//     content    String
+//     comment    Comment     @relation(fields: [commentId], references: [id], onDelete: Cascade)
+//     commentId  String
+//     user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId     String
+//     replyLikes ReplyLike[]
+//     createDate DateTime    @default(now())
+// }
+
+// model ReplyLike {
+//     id      String @id @default(uuid())
+//     user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+//     userId  String
+//     reply   Reply  @relation(fields: [replyId], references: [id], onDelete: Cascade)
+//     replyId String
+// }
